@@ -15,16 +15,14 @@ jobs:
         run: |
           docker run --rm \
             --entrypoint bash \
-            -e BUILDOZER_WARN_ON_ROOT=0 \
             -v ${{ github.workspace }}:/home/user/hostcwd \
             ghcr.io/kivy/buildozer:latest \
             -c '
-              export BUILDOZER_WARN_ON_ROOT=0
-              buildozer android debug || true
+              yes | buildozer android debug || true
               SDKMANAGER=$(find "$HOME/.buildozer" -name sdkmanager -type f | head -n 1)
               echo "Found sdkmanager at: $SDKMANAGER"
               yes | "$SDKMANAGER" --licenses
-              buildozer android debug
+              yes | buildozer android debug
             '
 
       - name: Upload APK
