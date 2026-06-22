@@ -15,7 +15,14 @@ jobs:
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/home/user/hostcwd \
-            ghcr.io/kivy/buildozer:latest android debug
+            ghcr.io/kivy/buildozer:latest \
+            bash -c '
+              buildozer android debug || true
+              SDKMANAGER=$(find "$HOME/.buildozer" -name sdkmanager -type f | head -n 1)
+              echo "Found sdkmanager at: $SDKMANAGER"
+              yes | "$SDKMANAGER" --licenses
+              buildozer android debug
+            '
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
