@@ -14,9 +14,10 @@ jobs:
       - name: Build APK with Buildozer Docker image
         run: |
           docker run --rm \
+            --entrypoint bash \
             -v ${{ github.workspace }}:/home/user/hostcwd \
             ghcr.io/kivy/buildozer:latest \
-            bash -c '
+            -c '
               buildozer android debug || true
               SDKMANAGER=$(find "$HOME/.buildozer" -name sdkmanager -type f | head -n 1)
               echo "Found sdkmanager at: $SDKMANAGER"
