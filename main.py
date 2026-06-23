@@ -8,6 +8,7 @@ from kivy.uix.image import Image
 from kivy.clock import Clock
 from kivy.graphics import Color, RoundedRectangle, Rectangle
 from kivy.core.window import Window
+from kivy.core.clipboard import Clipboard
 import pyotp
 import time
 
@@ -40,8 +41,8 @@ class RootLayout(FloatLayout):
         )
         self.add_widget(self.bg_image)
 
-        # Контент сверху
-        self.content = TOTPContent(size_hint=(1, 1))
+        # Контент сверху — по центру, размер по содержимому
+        self.content = TOTPContent()
         self.add_widget(self.content)
 
     def _update_bg(self, *args):
@@ -51,8 +52,13 @@ class RootLayout(FloatLayout):
 
 class TOTPContent(BoxLayout):
     def __init__(self, **kwargs):
-        super().__init__(orientation="vertical", padding=30, spacing=18, **kwargs)
+        super().__init__(orientation="vertical", padding=30, spacing=16, **kwargs)
         self.totp = None
+
+        # Ширина — 92% экрана, высота — по содержимому, всё по центру
+        self.size_hint = (0.92, None)
+        self.pos_hint = {"center_x": 0.5, "center_y": 0.5}
+        self.bind(minimum_height=self.setter("height"))
 
         title = Label(
             text="TOTP Generator",
@@ -64,19 +70,35 @@ class TOTPContent(BoxLayout):
         )
         self.add_widget(title)
 
+        # Строка: поле ключа + кнопка "Вставить"
+        input_row = BoxLayout(
+            orientation="horizontal", size_hint=(1, None), height=55, spacing=10
+        )
         self.secret_input = TextInput(
             hint_text="Введи секретный ключ 2FA",
             multiline=False,
             password=True,
-            size_hint=(1, None),
-            height=55,
+            size_hint=(0.7, 1),
             background_color=(0.12, 0.06, 0.18, 0.85),
             foreground_color=TEXT_LIGHT,
             hint_text_color=(0.6, 0.5, 0.7, 1),
             cursor_color=ACCENT,
             padding=[15, 15, 15, 15],
         )
-        self.add_widget(self.secret_input)
+        input_row.add_widget(self.secret_input)
+
+        self.paste_button = Button(
+            text="Вставить",
+            size_hint=(0.3, 1),
+            background_normal="",
+            background_color=ACCENT_DARK,
+            color=TEXT_LIGHT,
+            font_size=14,
+        )
+        self.paste_button.bind(on_press=self.paste_secret)
+        input_row.add_widget(self.paste_button)
+
+        self.add_widget(input_row)
 
         self.start_button = Button(
             text="Старт",
@@ -119,17 +141,33 @@ class TOTPContent(BoxLayout):
 
         self.add_widget(self.card)
 
-        self.clear_button = Button(
-            text="Очистить ключ",
-            size_hint=(1, None),
-            height=50,
+        # Строка: "Скопировать код" + "Очистить ключ"
+        action_row = BoxLayout(
+            orientation="horizontal", size_hint=(1, None), height=50, spacing=10
+        )
+        self.copy_button = Button(
+            text="Скопировать код",
+            size_hint=(0.5, 1),
             background_normal="",
             background_color=ACCENT_DARK,
             color=TEXT_LIGHT,
-            font_size=15,
+            font_size=14,
+        )
+        self.copy_button.bind(on_press=self.copy_code)
+        action_row.add_widget(self.copy_button)
+
+        self.clear_button = Button(
+            text="Очистить ключ",
+            size_hint=(0.5, 1),
+            background_normal="",
+            background_color=ACCENT_DARK,
+            color=TEXT_LIGHT,
+            font_size=14,
         )
         self.clear_button.bind(on_press=self.clear)
-        self.add_widget(self.clear_button)
+        action_row.add_widget(self.clear_button)
+
+        self.add_widget(action_row)
 
     def _update_card(self, *args):
         self.card_rect.pos = self.card.pos
@@ -155,6 +193,19 @@ class TOTPContent(BoxLayout):
         remaining = self.totp.interval - (int(time.time()) % self.totp.interval)
         self.code_label.text = code
         self.timer_label.text = f"Обновится через {remaining} сек"
+
+    def paste_secret(self, instance):
+        text = Clipboard.paste()
+        if text:
+            self.secret_input.text = text.strip().replace(" ", "")
+
+    def copy_code(self, instance):
+        if not self.code_label.text or self.code_label.text == "Неверный ключ":
+            return
+        Clipboard.copy(self.code_label.text)
+        original = instance.text
+        instance.text = "Скопировано!"
+        Clock.schedule_once(lambda dt: setattr(instance, "text", original), 1)
 
     def clear(self, instance):
         # Ничего не сохранялось на диск — просто чистим память
